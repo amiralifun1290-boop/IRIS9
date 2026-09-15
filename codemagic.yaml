@@ -1,0 +1,63 @@
+workflows:
+  iris-debug:
+    name: IRIS Debug APK
+    instance_type: mac_mini_m1
+    max_build_duration: 30
+    environment:
+      android_signing:
+        - iris_keystore
+      groups:
+        - iris_secrets
+      vars:
+        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+        ANDROID_SDK_ROOT: /usr/local/share/android-sdk
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/.gradle
+        - $HOME/.gradle/caches
+    scripts:
+      - name: Generate Gradle wrapper
+        script: gradle wrapper --gradle-version 8.6
+      - name: Set executable permission for gradlew
+        script: chmod +x ./gradlew
+      - name: Build Debug APK
+        script: |
+          ./gradlew assembleDebug \
+            -Pandroid.injected.signing.store.file=$CM_BUILD_DIR/iris.keystore \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+    artifacts:
+      - app/build/outputs/apk/debug/app-debug.apk
+    publishing:
+      email:
+        recipients:
+          - user@example.com
+
+  iris-release:
+    name: IRIS Release APK
+    instance_type: mac_mini_m1
+    max_build_duration: 30
+    environment:
+      android_signing:
+        - iris_keystore
+      groups:
+        - iris_secrets
+      vars:
+        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+    scripts:
+      - name: Decode keystore
+        script: |
+          echo $KEYSTORE_BASE64 | base64 --decode > $CM_BUILD_DIR/iris.keystore
+      - name: Generate Gradle wrapper
+        script: gradle wrapper --gradle-version 8.6
+      - name: Build Release APK
+        script: |
+          export KEYSTORE_PATH=$CM_BUILD_DIR/iris.keystore
+          export KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD
+          export KEY_ALIAS=$KEY_ALIAS
+          export KEY_PASSWORD=$KEY_PASSWORD
+          chmod +x ./gradlew
+          ./gradlew assembleRelease
+    artifacts:
+      - app/build/outputs/apk/release/app-release.apk
